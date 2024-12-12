@@ -1,4 +1,4 @@
-import { escape_html_attr } from '../../../utils/escape.js';
+import { escape_html } from '../../../utils/escape.js';
 import { hash } from '../../hash.js';
 
 /**
@@ -46,7 +46,7 @@ export function serialize_data(fetched, filter, prerendering = false) {
 
 	let cache_control = null;
 	let age = null;
-	let vary = false;
+	let varyAny = false;
 
 	for (const [key, value] of fetched.response.headers) {
 		if (filter(key, value)) {
@@ -54,8 +54,8 @@ export function serialize_data(fetched, filter, prerendering = false) {
 		}
 
 		if (key === 'cache-control') cache_control = value;
-		if (key === 'age') age = value;
-		if (key === 'vary') vary = true;
+		else if (key === 'age') age = value;
+		else if (key === 'vary' && value.trim() === '*') varyAny = true;
 	}
 
 	const payload = {
@@ -70,8 +70,12 @@ export function serialize_data(fetched, filter, prerendering = false) {
 	const attrs = [
 		'type="application/json"',
 		'data-sveltekit-fetched',
-		`data-url=${escape_html_attr(fetched.url)}`
+		`data-url="${escape_html(fetched.url, true)}"`
 	];
+
+	if (fetched.is_b64) {
+		attrs.push('data-b64');
+	}
 
 	if (fetched.request_headers || fetched.request_body) {
 		/** @type {import('types').StrictBody[]} */
@@ -89,10 +93,9 @@ export function serialize_data(fetched, filter, prerendering = false) {
 	}
 
 	// Compute the time the response should be cached, taking into account max-age and age.
-	// Do not cache at all if a vary header is present, as this indicates that the cache is
-	// likely to get busted. It would also mean we'd have to add more logic to computing the
-	// selector on the client which results in more code for 99% of people for the 1% who use vary.
-	if (!prerendering && fetched.method === 'GET' && cache_control && !vary) {
+	// Do not cache at all if a `Vary: *` header is present, as this indicates that the
+	// cache is likely to get busted.
+	if (!prerendering && fetched.method === 'GET' && cache_control && !varyAny) {
 		const match = /s-maxage=(\d+)/g.exec(cache_control) ?? /max-age=(\d+)/g.exec(cache_control);
 		if (match) {
 			const ttl = +match[1] - +(age ?? '0');

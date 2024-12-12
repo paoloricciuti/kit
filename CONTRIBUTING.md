@@ -2,7 +2,7 @@
 
 ## Preparing
 
-This is a monorepo, meaning the repo holds multiple packages. It requires the use of [pnpm](https://pnpm.js.org/en/). You can [install pnpm](https://pnpm.io/installation) with:
+This is a monorepo, meaning the repo holds multiple packages. It requires the use of [pnpm](https://pnpm.io/). You can [install pnpm](https://pnpm.io/installation) with:
 
 ```bash
 npm i -g pnpm
@@ -16,19 +16,48 @@ cd kit
 pnpm install
 ```
 
-You can now run SvelteKit by linking it into your project with [pnpm `overrides`](https://pnpm.io/package_json#pnpmoverrides) as demonstrated in the [sandbox example](https://github.com/sveltejs/kit-sandbox) or by running one of the test projects as described in [the testing section](#testing) below.
+## Testing Changes
+
+### Playground
+
+You can use the playground at [`playgrounds/basic`](./playgrounds/basic/) to experiment with your changes to SvelteKit locally.
+
+### Linking local changes
+
+If you want to test against an existing project, you can use [pnpm `overrides`](https://pnpm.io/package_json#pnpmoverrides) in that project:
+
+```jsonc
+{
+	// ...
+	"pnpm": {
+		"overrides": {
+			"@sveltejs/kit": "link:../path/to/svelte-kit/packages/kit",
+			// additionally/optional the adapter you're using
+			"@sveltejs/adapter-auto": "link:../path/to/svelte-kit/packages/adapter-auto"
+		}
+	}
+}
+```
+
+### Testing PR changes
+
+Each pull request will be built and published via [pkg.pr.new/](https://pkg.pr.new/). You can test the change by installing the package with your PR number:
+
+```
+npm add https://pkg.pr.new/sveltejs/kit/@sveltejs/kit@YOUR_PR_NUMBER_GOES_HERE
+```
 
 ## Code structure
 
 Entry points to be aware of are:
 
-- [`packages/create-svelte`](https://github.com/sveltejs/kit/tree/master/packages/create-svelte) - code that's run when you create a new project with `npm create svelte@latest`
-- [`packages/package`](https://github.com/sveltejs/kit/tree/master/packages/package) - for the `svelte-package` command
-- [`packages/kit/src/core`](https://github.com/sveltejs/kit/tree/master/packages/kit/src/core) - code that's called at dev/build-time
-- [`packages/kit/src/core/sync`](https://github.com/sveltejs/kit/tree/master/packages/kit/src/core/sync) - for `svelte-kit sync`, which regenerates routing info and type definitions
-- [`packages/kit/src/runtime`](https://github.com/sveltejs/kit/tree/master/packages/kit/src/runtime) - code that's called at runtime
-- [`packages/kit/src/exports/vite`](https://github.com/sveltejs/kit/tree/master/packages/kit/src/exports/vite) - for all the Vite plugin related stuff
-- [`packages/adapter-[platform]`](https://github.com/sveltejs/kit/tree/master/packages) - for the various SvelteKit-provided adapters
+- [`packages/create-svelte`](https://github.com/sveltejs/kit/tree/main/packages/create-svelte) - code that's run when you create a new project with `npx sv create`
+- [`packages/package`](https://github.com/sveltejs/kit/tree/main/packages/package) - for the `svelte-package` command
+- [`packages/kit/src/core`](https://github.com/sveltejs/kit/tree/main/packages/kit/src/core) - code that's called at dev/build-time
+- [`packages/kit/src/core/sync`](https://github.com/sveltejs/kit/tree/main/packages/kit/src/core/sync) - for `svelte-kit sync`, which regenerates routing info and type definitions
+- [`packages/kit/src/runtime`](https://github.com/sveltejs/kit/tree/main/packages/kit/src/runtime) - code that's called at runtime
+- [`packages/kit/src/exports/vite`](https://github.com/sveltejs/kit/tree/main/packages/kit/src/exports/vite) - for all the Vite plugin related stuff
+- [`packages/adapter-[platform]`](https://github.com/sveltejs/kit/tree/main/packages) - for the various SvelteKit-provided adapters
 
 ## Good first issues
 
@@ -44,7 +73,7 @@ Run `pnpm test` to run the tests from all subpackages. Browser tests live in sub
 
 You can run the tests for only a single package by first moving to that directory. E.g. `cd packages/kit`.
 
-You must rebuild each time before running the tests if you've made code changes.
+For some packages you must rebuild each time before running the tests if you've made code changes. These packages have a `build` command. Packages like `packages/kit` don't require a build step.
 
 To run a single integration test or otherwise control the running of the tests locally see [the Playwright CLI docs](https://playwright.dev/docs/test-cli). Note that you will need to run these commands from the test project directory such as `packages/kit/test/apps/basics`.
 
@@ -66,21 +95,21 @@ If you would like to test local changes to Vite or another dependency, you can b
 
 ```jsonc
 {
-  // ...
-  "dependencies": {
-    "vite": "^4.0.0"
-  },
-  "pnpm": {
-    "overrides": {
-      "vite": "link:../path/to/vite/packages/vite"
-    }
-  }
+	// ...
+	"dependencies": {
+		"vite": "^4.0.0"
+	},
+	"pnpm": {
+		"overrides": {
+			"vite": "link:../path/to/vite/packages/vite"
+		}
+	}
 }
 ```
 
 ## Documentation changes
 
-All documentation for SvelteKit is in the [`documentation` directory](https://github.com/sveltejs/kit/tree/master/documentation), and any improvements should be made as a Pull Request to this repository. The site itself is located in the [`sites/kit.svelte.dev` directory](https://github.com/sveltejs/kit/tree/master/sites/kit.svelte.dev) and can be run locally to preview changes.
+All documentation for SvelteKit is in the [`documentation` directory](https://github.com/sveltejs/kit/tree/main/documentation), and any improvements should be made as a Pull Request to this repository. The site itself is located in the [`sveltejs/svelte.dev` repo](https://github.com/sveltejs/svelte.dev) and can be run locally to preview changes.
 
 ## Sending PRs
 
@@ -102,6 +131,10 @@ git config core.hookspath .githooks
 ### Generating changelogs
 
 For changes to be reflected in package changelogs, run `pnpm changeset` and follow the prompts.
+
+### Type changes
+
+If your PR changes the generated types of SvelteKit, run `pnpm generate:types` inside `packages/kit` and commit the new output (don't format it with Prettier!). Review the changes carefully to ensure there are no unwanted changes. If you don't commit type changes, CI will fail.
 
 ## Releases
 

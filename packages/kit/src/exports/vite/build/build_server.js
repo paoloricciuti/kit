@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import { mkdirp } from '../../../utils/filesystem.js';
 import { find_deps, resolve_symlinks } from './utils.js';
 import { s } from '../../../utils/misc.js';
+import { normalizePath } from 'vite';
 
 /**
  * @param {string} out
@@ -9,7 +10,7 @@ import { s } from '../../../utils/misc.js';
  * @param {import('types').ManifestData} manifest_data
  * @param {import('vite').Manifest} server_manifest
  * @param {import('vite').Manifest | null} client_manifest
- * @param {import('rollup').OutputAsset[] | null} css
+ * @param {import('vite').Rollup.OutputAsset[] | null} css
  * @param {import('types').RecursiveRequired<import('types').Config['output']>} output_config
  */
 export function build_server_nodes(
@@ -66,7 +67,8 @@ export function build_server_nodes(
 			}
 
 			exports.push(
-				`export const component = async () => (await import('../${
+				'let component_cache;',
+				`export const component = async () => component_cache ??= (await import('../${
 					resolve_symlinks(server_manifest, node.component).chunk.file
 				}')).default;`
 			);
@@ -82,14 +84,26 @@ export function build_server_nodes(
 			}
 
 			imports.push(`import * as universal from '../${server_manifest[node.universal].file}';`);
-			exports.push(`export { universal };`);
+			exports.push('export { universal };');
 			exports.push(`export const universal_id = ${s(node.universal)};`);
 		}
 
 		if (node.server) {
 			imports.push(`import * as server from '../${server_manifest[node.server].file}';`);
-			exports.push(`export { server };`);
+			exports.push('export { server };');
 			exports.push(`export const server_id = ${s(node.server)};`);
+		}
+
+		if (client_manifest && (node.universal || node.component)) {
+			const entry = find_deps(
+				client_manifest,
+				`${normalizePath(kit.outDir)}/generated/client-optimized/nodes/${i}.js`,
+				true
+			);
+
+			imported.push(...entry.imports);
+			stylesheets.push(...entry.stylesheets);
+			fonts.push(...entry.fonts);
 		}
 
 		exports.push(

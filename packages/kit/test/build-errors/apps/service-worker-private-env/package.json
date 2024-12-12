@@ -1,0 +1,21 @@
+{
+	"name": "service-worker-private-env",
+	"version": "0.0.1",
+	"private": true,
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"preview": "vite preview",
+		"check": "svelte-kit sync && tsc && svelte-check",
+		"check:watch": "svelte-check --watch"
+	},
+	"devDependencies": {
+		"@sveltejs/kit": "workspace:^",
+		"@sveltejs/vite-plugin-svelte": "^5.0.1",
+		"svelte": "^5.2.9",
+		"svelte-check": "^4.1.1",
+		"typescript": "^5.5.4",
+		"vite": "^6.0.1"
+	},
+	"type": "module"
+}

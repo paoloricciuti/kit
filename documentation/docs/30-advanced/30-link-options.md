@@ -6,7 +6,7 @@ In SvelteKit, `<a>` elements (rather than framework-specific `<Link>` components
 
 You can customise the behaviour of links with `data-sveltekit-*` attributes. These can be applied to the `<a>` itself, or to a parent element.
 
-These options also apply to `<form>` elements with [`method="GET"`](/docs/form-actions#get-vs-post).
+These options also apply to `<form>` elements with [`method="GET"`](form-actions#GET-vs-POST).
 
 ## data-sveltekit-preload-data
 
@@ -37,7 +37,7 @@ In these cases, you can specify the `"tap"` value, which causes SvelteKit to cal
 </a>
 ```
 
-> You can also programmatically invoke `preloadData` from `$app/navigation`.
+> [!NOTE] You can also programmatically invoke `preloadData` from `$app/navigation`.
 
 Data will never be preloaded if the user has chosen reduced data usage, meaning [`navigator.connection.saveData`](https://developer.mozilla.org/en-US/docs/Web/API/NetworkInformation/saveData) is `true`.
 
@@ -52,7 +52,7 @@ Even in cases where you don't want to preload _data_ for a link, it can be benef
 
 Note that `viewport` and `eager` only apply to links that are present in the DOM immediately following navigation — if a link is added later (in an `{#if ...}` block, for example) it will not be preloaded until triggered by `hover` or `tap`. This is to avoid performance pitfalls resulting from aggressively observing the DOM for changes.
 
-> Since preloading code is a prerequisite for preloading data, this attribute will only have an effect if it specifies a more eager value than any `data-sveltekit-preload-data` attribute that is present.
+> [!NOTE] Since preloading code is a prerequisite for preloading data, this attribute will only have an effect if it specifies a more eager value than any `data-sveltekit-preload-data` attribute that is present.
 
 As with `data-sveltekit-preload-data`, this attribute will be ignored if the user has chosen reduced data usage.
 
@@ -80,7 +80,7 @@ Sometimes you don't want navigation to create a new entry in the browser's sessi
 
 ## data-sveltekit-keepfocus
 
-Sometimes you don't want [focus to be reset](/docs/accessibility#focus-management) after navigation. For example, maybe you have a search form that submits as the user is typing, and you want to keep focus on the text input.  Adding a `data-sveltekit-keepfocus` attribute to it...
+Sometimes you don't want [focus to be reset](accessibility#Focus-management) after navigation. For example, maybe you have a search form that submits as the user is typing, and you want to keep focus on the text input.  Adding a `data-sveltekit-keepfocus` attribute to it...
 
 ```html
 <form data-sveltekit-keepfocus>
@@ -104,7 +104,7 @@ In certain cases, you may wish to disable this behaviour. Adding a `data-sveltek
 
 ## Disabling options
 
-To disable any of these options inside an element where they have been enabled, use the `"off"` value:
+To disable any of these options inside an element where they have been enabled, use the `"false"` value:
 
 ```html
 <div data-sveltekit-preload-data>
@@ -113,7 +113,7 @@ To disable any of these options inside an element where they have been enabled, 
 	<a href="/b">b</a>
 	<a href="/c">c</a>
 
-	<div data-sveltekit-preload-data="off">
+	<div data-sveltekit-preload-data="false">
 		<!-- these links will NOT be preloaded -->
 		<a href="/d">d</a>
 		<a href="/e">e</a>
@@ -124,8 +124,6 @@ To disable any of these options inside an element where they have been enabled, 
 
 To apply an attribute to an element conditionally, do this:
 
-```html
-<div data-sveltekit-reload={shouldReload ? '' : 'off'}>
+```svelte
+<div data-sveltekit-preload-data={condition ? 'hover' : false}>
 ```
-
-> This works because in HTML, `<element attribute>` is equivalent to `<element attribute="">`

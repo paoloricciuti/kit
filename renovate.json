@@ -1,7 +1,6 @@
 {
 	"extends": [
-		"github>whitesource/merge-confidence:beta",
-		"config:base",
+		"config:recommended",
 		":preserveSemverRanges",
 		"group:allNonMajor",
 		":semanticCommitTypeAll(chore)"
@@ -10,10 +9,10 @@
 		"enabled": false
 	},
 	"ignoreDeps": [
+		"@types/node",
 		"esbuild",
 		"rollup",
-		"typescript",
-		"undici"
+		"typescript"
 	],
 	"ignorePaths": [
 		"**/create-svelte/shared/**",
@@ -21,8 +20,13 @@
 	],
 	"packageRules": [
 		{
-			"matchPackageNames": ["@types/node", "vite"],
-			"matchUpdateTypes": ["minor", "patch", "pin", "digest"]
+			"matchPackageNames": [
+				"vite"
+			],
+			"matchUpdateTypes": [
+				"major"
+			],
+			"enabled": false
 		}
 	]
 }

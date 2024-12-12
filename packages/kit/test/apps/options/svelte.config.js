@@ -33,7 +33,8 @@ const config = {
 		},
 		env: {
 			dir: './env-dir',
-			publicPrefix: 'GO_AWAY_'
+			publicPrefix: 'GO_AWAY_',
+			privatePrefix: 'TOP_SECRET_SHH'
 		}
 	}
 };

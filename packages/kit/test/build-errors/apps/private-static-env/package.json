@@ -6,16 +6,17 @@
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview",
-		"check": "svelte-kit sync && tsc && svelte-check --tsconfig ./jsconfig.json",
-		"check:watch": "svelte-check --tsconfig ./jsconfig.json --watch"
+		"check": "svelte-kit sync && tsc && svelte-check",
+		"check:watch": "svelte-check --watch"
 	},
 	"devDependencies": {
 		"@sveltejs/kit": "workspace:^",
+		"@sveltejs/vite-plugin-svelte": "^5.0.1",
 		"cross-env": "^7.0.3",
-		"svelte": "^3.56.0",
-		"svelte-check": "^3.0.2",
-		"typescript": "^4.9.4",
-		"vite": "^4.2.0"
+		"svelte": "^5.2.9",
+		"svelte-check": "^4.1.1",
+		"typescript": "^5.5.4",
+		"vite": "^6.0.1"
 	},
 	"type": "module"
 }

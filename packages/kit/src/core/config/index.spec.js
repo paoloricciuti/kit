@@ -1,8 +1,8 @@
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { test } from 'uvu';
-import * as assert from 'uvu/assert';
+import { assert, expect, test } from 'vitest';
 import { validate_config, load_config } from './index.js';
+import process from 'node:process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = join(__filename, '..');
@@ -73,13 +73,15 @@ const get_defaults = (prefix = '') => ({
 		embedded: false,
 		env: {
 			dir: process.cwd(),
-			publicPrefix: 'PUBLIC_'
+			publicPrefix: 'PUBLIC_',
+			privatePrefix: ''
 		},
 		files: {
 			assets: join(prefix, 'static'),
 			hooks: {
 				client: join(prefix, 'src/hooks.client'),
-				server: join(prefix, 'src/hooks.server')
+				server: join(prefix, 'src/hooks.server'),
+				universal: join(prefix, 'src/hooks')
 			},
 			lib: join(prefix, 'src/lib'),
 			params: join(prefix, 'src/params'),
@@ -99,7 +101,7 @@ const get_defaults = (prefix = '') => ({
 		paths: {
 			base: '',
 			assets: '',
-			relative: undefined
+			relative: true
 		},
 		prerender: {
 			concurrency: 1,
@@ -124,7 +126,7 @@ test('fills in defaults', () => {
 	const defaults = get_defaults();
 	defaults.kit.version.name = validated.kit.version.name;
 
-	assert.equal(validated, defaults);
+	expect(validated).toEqual(defaults);
 });
 
 test('errors on invalid values', () => {
@@ -152,7 +154,7 @@ test('errors on invalid nested values', () => {
 });
 
 test('does not error on invalid top-level values', () => {
-	assert.not.throws(() => {
+	assert.doesNotThrow(() => {
 		validate_config({
 			onwarn: () => {}
 		});
@@ -187,7 +189,7 @@ test('fills in partial blanks', () => {
 	config.kit.files.assets = 'public';
 	config.kit.version.name = '0';
 
-	assert.equal(validated, config);
+	expect(validated).toEqual(config);
 });
 
 test('fails if kit.appDir is blank', () => {
@@ -207,7 +209,7 @@ test('fails if kit.appDir is only slash', () => {
 				appDir: '/'
 			}
 		});
-	}, /^config\.kit\.appDir cannot start or end with '\/'. See https:\/\/kit\.svelte\.dev\/docs\/configuration$/);
+	}, /^config\.kit\.appDir cannot start or end with '\/'. See https:\/\/svelte\.dev\/docs\/kit\/configuration$/);
 });
 
 test('fails if kit.appDir starts with slash', () => {
@@ -217,7 +219,7 @@ test('fails if kit.appDir starts with slash', () => {
 				appDir: '/_app'
 			}
 		});
-	}, /^config\.kit\.appDir cannot start or end with '\/'. See https:\/\/kit\.svelte\.dev\/docs\/configuration$/);
+	}, /^config\.kit\.appDir cannot start or end with '\/'. See https:\/\/svelte\.dev\/docs\/kit\/configuration$/);
 });
 
 test('fails if kit.appDir ends with slash', () => {
@@ -227,7 +229,7 @@ test('fails if kit.appDir ends with slash', () => {
 				appDir: '_app/'
 			}
 		});
-	}, /^config\.kit\.appDir cannot start or end with '\/'. See https:\/\/kit\.svelte\.dev\/docs\/configuration$/);
+	}, /^config\.kit\.appDir cannot start or end with '\/'. See https:\/\/svelte\.dev\/docs\/kit\/configuration$/);
 });
 
 test('fails if paths.base is not root-relative', () => {
@@ -240,7 +242,7 @@ test('fails if paths.base is not root-relative', () => {
 				}
 			}
 		});
-	}, /^config\.kit\.paths\.base option must either be the empty string or a root-relative path that starts but doesn't end with '\/'. See https:\/\/kit\.svelte\.dev\/docs\/configuration#paths$/);
+	}, /^config\.kit\.paths\.base option must either be the empty string or a root-relative path that starts but doesn't end with '\/'. See https:\/\/svelte\.dev\/docs\/kit\/configuration#paths$/);
 });
 
 test("fails if paths.base ends with '/'", () => {
@@ -252,7 +254,7 @@ test("fails if paths.base ends with '/'", () => {
 				}
 			}
 		});
-	}, /^config\.kit\.paths\.base option must either be the empty string or a root-relative path that starts but doesn't end with '\/'. See https:\/\/kit\.svelte\.dev\/docs\/configuration#paths$/);
+	}, /^config\.kit\.paths\.base option must either be the empty string or a root-relative path that starts but doesn't end with '\/'. See https:\/\/svelte\.dev\/docs\/kit\/configuration#paths$/);
 });
 
 test('fails if paths.assets is relative', () => {
@@ -265,7 +267,7 @@ test('fails if paths.assets is relative', () => {
 				}
 			}
 		});
-	}, /^config\.kit\.paths\.assets option must be an absolute path, if specified. See https:\/\/kit\.svelte\.dev\/docs\/configuration#paths$/);
+	}, /^config\.kit\.paths\.assets option must be an absolute path, if specified. See https:\/\/svelte\.dev\/docs\/kit\/configuration#paths$/);
 });
 
 test('fails if paths.assets has trailing slash', () => {
@@ -277,7 +279,7 @@ test('fails if paths.assets has trailing slash', () => {
 				}
 			}
 		});
-	}, /^config\.kit\.paths\.assets option must not end with '\/'. See https:\/\/kit\.svelte\.dev\/docs\/configuration#paths$/);
+	}, /^config\.kit\.paths\.assets option must not end with '\/'. See https:\/\/svelte\.dev\/docs\/kit\/configuration#paths$/);
 });
 
 test('fails if prerender.entries are invalid', () => {
@@ -295,19 +297,18 @@ test('fails if prerender.entries are invalid', () => {
 
 /**
  * @param {string} name
- * @param {import('types').KitConfig['paths']} input
- * @param {import('types').KitConfig['paths']} output
+ * @param {import('@sveltejs/kit').KitConfig['paths']} input
+ * @param {import('@sveltejs/kit').KitConfig['paths']} output
  */
 function validate_paths(name, input, output) {
 	test(name, () => {
-		assert.equal(
+		expect(
 			validate_config({
 				kit: {
 					paths: input
 				}
-			}).kit.paths,
-			output
-		);
+			}).kit.paths
+		).toEqual(output);
 	});
 }
 
@@ -319,7 +320,7 @@ validate_paths(
 	{
 		base: '/path/to/base',
 		assets: '',
-		relative: undefined
+		relative: true
 	}
 );
 
@@ -331,7 +332,7 @@ validate_paths(
 	{
 		base: '',
 		assets: 'https://cdn.example.com',
-		relative: undefined
+		relative: true
 	}
 );
 
@@ -344,7 +345,7 @@ validate_paths(
 	{
 		base: '/path/to/base',
 		assets: 'https://cdn.example.com',
-		relative: undefined
+		relative: true
 	}
 );
 
@@ -357,7 +358,7 @@ test('load default config (esm)', async () => {
 	const defaults = get_defaults(cwd + '/');
 	defaults.kit.version.name = config.kit.version.name;
 
-	assert.equal(config, defaults);
+	expect(config).toEqual(defaults);
 });
 
 test('errors on loading config with incorrect default export', async () => {
@@ -372,8 +373,6 @@ test('errors on loading config with incorrect default export', async () => {
 
 	assert.equal(
 		message,
-		'svelte.config.js must have a configuration object as its default export. See https://kit.svelte.dev/docs/configuration'
+		'svelte.config.js must have a configuration object as its default export. See https://svelte.dev/docs/kit/configuration'
 	);
 });
-
-test.run();

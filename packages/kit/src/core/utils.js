@@ -1,4 +1,6 @@
+import fs from 'node:fs';
 import path from 'node:path';
+import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import colors from 'kleur';
 import { posixify, to_fs } from '../utils/filesystem.js';
@@ -55,4 +57,31 @@ export function get_mime_lookup(manifest_data) {
 	});
 
 	return mime;
+}
+
+/**
+ * @param {string} dir
+ * @param {(file: string) => boolean} [filter]
+ */
+export function list_files(dir, filter) {
+	/** @type {string[]} */
+	const files = [];
+
+	/** @param {string} current */
+	function walk(current) {
+		for (const file of fs.readdirSync(path.resolve(dir, current))) {
+			const child = path.posix.join(current, file);
+			if (fs.statSync(path.resolve(dir, child)).isDirectory()) {
+				walk(child);
+			} else {
+				if (!filter || filter(child)) {
+					files.push(child);
+				}
+			}
+		}
+	}
+
+	if (fs.existsSync(dir)) walk('');
+
+	return files;
 }

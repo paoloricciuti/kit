@@ -1,4 +1,4 @@
-import { HttpError, Redirect } from '../../control.js';
+import { HttpError, SvelteKitError, Redirect } from '../../control.js';
 import { normalize_error } from '../../../utils/error.js';
 import { once } from '../../../utils/functions.js';
 import { load_server_data } from '../page/load_data.js';
@@ -8,15 +8,13 @@ import { text } from '../../../exports/index.js';
 import * as devalue from 'devalue';
 import { create_async_iterator } from '../../../utils/streaming.js';
 
-export const INVALIDATED_PARAM = 'x-sveltekit-invalidated';
-
 const encoder = new TextEncoder();
 
 /**
- * @param {import('types').RequestEvent} event
+ * @param {import('@sveltejs/kit').RequestEvent} event
  * @param {import('types').SSRRoute} route
  * @param {import('types').SSROptions} options
- * @param {import('types').SSRManifest} manifest
+ * @param {import('@sveltejs/kit').SSRManifest} manifest
  * @param {import('types').SSRState} state
  * @param {boolean[] | undefined} invalidated_data_nodes
  * @param {import('types').TrailingSlash} trailing_slash
@@ -111,7 +109,10 @@ export async function render_data(
 					return /** @type {import('types').ServerErrorNode} */ ({
 						type: 'error',
 						error: await handle_error_and_jsonify(event, options, error),
-						status: error instanceof HttpError ? error.status : undefined
+						status:
+							error instanceof HttpError || error instanceof SvelteKitError
+								? error.status
+								: undefined
 					});
 				})
 			)
@@ -184,7 +185,7 @@ export function redirect_json_response(redirect) {
 /**
  * If the serialized data contains promises, `chunks` will be an
  * async iterable containing their resolutions
- * @param {import('types').RequestEvent} event
+ * @param {import('@sveltejs/kit').RequestEvent} event
  * @param {import('types').SSROptions} options
  * @param {Array<import('types').ServerDataSkippedNode | import('types').ServerDataNode | import('types').ServerErrorNode | null | undefined>} nodes
  *  @returns {{ data: string, chunks: AsyncIterable<string> | null }}
@@ -218,7 +219,7 @@ export function get_data_json(event, options, nodes) {
 							let str;
 							try {
 								str = devalue.stringify(value, reducers);
-							} catch (e) {
+							} catch {
 								const error = await handle_error_and_jsonify(
 									event,
 									options,

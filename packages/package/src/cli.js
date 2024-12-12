@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import process from 'node:process';
 import colors from 'kleur';
 import sade from 'sade';
 import { load_config } from './config.js';
@@ -24,6 +25,10 @@ prog
 	.option('-o, --output', 'Output directory', 'dist')
 	.option('-t, --types', 'Emit type declarations', true)
 	.option('-w, --watch', 'Rerun when files change', false)
+	.option(
+		'--tsconfig',
+		'A path to a tsconfig or jsconfig file. When not provided, searches for the next upper tsconfig/jsconfig in the workspace path.'
+	)
 	.action(async (args) => {
 		try {
 			const config = await load_config();
@@ -31,17 +36,18 @@ prog
 			// @ts-expect-error
 			if (config.package) {
 				throw new Error(
-					`config.package is no longer supported. See https://github.com/sveltejs/kit/pull/8922 for more information and how to migrate.`
+					'config.package is no longer supported. See https://github.com/sveltejs/kit/pull/8922 for more information and how to migrate.'
 				);
 			}
 
 			const packaging = await import('./index.js');
 
-			/** @type {import('./types').Options} */
+			/** @type {import('./types.js').Options} */
 			const options = {
 				cwd: process.cwd(),
 				input: args.input ?? config.kit?.files?.lib ?? 'src/lib',
 				output: args.output,
+				tsconfig: args.tsconfig,
 				types: args.types,
 				config
 			};

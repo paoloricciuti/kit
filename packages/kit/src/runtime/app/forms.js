@@ -1,21 +1,32 @@
 import * as devalue from 'devalue';
-import { client } from '../client/singletons.js';
+import { DEV } from 'esm-env';
 import { invalidateAll } from './navigation.js';
-import { BROWSER, DEV } from 'esm-env';
+import { applyAction } from '../client/client.js';
+
+export { applyAction };
 
 /**
- * @param {string} name
+ * Use this function to deserialize the response from a form submission.
+ * Usage:
+ *
+ * ```js
+ * import { deserialize } from '$app/forms';
+ *
+ * async function handleSubmit(event) {
+ *   const response = await fetch('/form?/action', {
+ *     method: 'POST',
+ *     body: new FormData(event.target)
+ *   });
+ *
+ *   const result = deserialize(await response.text());
+ *   // ...
+ * }
+ * ```
+ * @template {Record<string, unknown> | undefined} Success
+ * @template {Record<string, unknown> | undefined} Failure
+ * @param {string} result
+ * @returns {import('@sveltejs/kit').ActionResult<Success, Failure>}
  */
-function guard(name) {
-	return () => {
-		throw new Error(`Cannot call ${name}(...) on the server`);
-	};
-}
-
-/** @type {import('$app/forms').applyAction} */
-export const applyAction = BROWSER ? client.apply_action : guard('applyAction');
-
-/** @type {import('$app/forms').deserialize} */
 export function deserialize(result) {
 	const parsed = JSON.parse(result);
 	if (parsed.data) {
@@ -24,30 +35,66 @@ export function deserialize(result) {
 	return parsed;
 }
 
-/** @type {import('$app/forms').enhance} */
-export function enhance(form, submit = () => {}) {
-	if (
-		DEV &&
-		/** @type {HTMLFormElement} */ (HTMLFormElement.prototype.cloneNode.call(form)).method !==
-			'post'
-	) {
+/**
+ * Shallow clone an element, so that we can access e.g. `form.action` without worrying
+ * that someone has added an `<input name="action">` (https://github.com/sveltejs/kit/issues/7593)
+ * @template {HTMLElement} T
+ * @param {T} element
+ * @returns {T}
+ */
+function clone(element) {
+	return /** @type {T} */ (HTMLElement.prototype.cloneNode.call(element));
+}
+
+/**
+ * This action enhances a `<form>` element that otherwise would work without JavaScript.
+ *
+ * The `submit` function is called upon submission with the given FormData and the `action` that should be triggered.
+ * If `cancel` is called, the form will not be submitted.
+ * You can use the abort `controller` to cancel the submission in case another one starts.
+ * If a function is returned, that function is called with the response from the server.
+ * If nothing is returned, the fallback will be used.
+ *
+ * If this function or its return value isn't set, it
+ * - falls back to updating the `form` prop with the returned data if the action is on the same page as the form
+ * - updates `$page.status`
+ * - resets the `<form>` element and invalidates all data in case of successful submission with no redirect response
+ * - redirects in case of a redirect response
+ * - redirects to the nearest error page in case of an unexpected error
+ *
+ * If you provide a custom function with a callback and want to use the default behavior, invoke `update` in your callback.
+ * @template {Record<string, unknown> | undefined} Success
+ * @template {Record<string, unknown> | undefined} Failure
+ * @param {HTMLFormElement} form_element The form element
+ * @param {import('@sveltejs/kit').SubmitFunction<Success, Failure>} submit Submit callback
+ */
+export function enhance(form_element, submit = () => {}) {
+	if (DEV && clone(form_element).method !== 'post') {
 		throw new Error('use:enhance can only be used on <form> fields with method="POST"');
 	}
 
 	/**
 	 * @param {{
 	 *   action: URL;
-	 *   result: import('types').ActionResult;
+	 *   invalidateAll?: boolean;
+	 *   result: import('@sveltejs/kit').ActionResult;
 	 *   reset?: boolean
 	 * }} opts
 	 */
-	const fallback_callback = async ({ action, result, reset }) => {
+	const fallback_callback = async ({
+		action,
+		result,
+		reset = true,
+		invalidateAll: shouldInvalidateAll = true
+	}) => {
 		if (result.type === 'success') {
-			if (reset !== false) {
+			if (reset) {
 				// We call reset from the prototype to avoid DOM clobbering
-				HTMLFormElement.prototype.reset.call(form);
+				HTMLFormElement.prototype.reset.call(form_element);
 			}
-			await invalidateAll();
+			if (shouldInvalidateAll) {
+				await invalidateAll();
+			}
 		}
 
 		// For success/failure results, only apply action if it belongs to the
@@ -63,21 +110,39 @@ export function enhance(form, submit = () => {}) {
 
 	/** @param {SubmitEvent} event */
 	async function handle_submit(event) {
+		const method = event.submitter?.hasAttribute('formmethod')
+			? /** @type {HTMLButtonElement | HTMLInputElement} */ (event.submitter).formMethod
+			: clone(form_element).method;
+		if (method !== 'post') return;
+
 		event.preventDefault();
 
 		const action = new URL(
 			// We can't do submitter.formAction directly because that property is always set
-			// We do cloneNode for avoid DOM clobbering - https://github.com/sveltejs/kit/issues/7593
 			event.submitter?.hasAttribute('formaction')
 				? /** @type {HTMLButtonElement | HTMLInputElement} */ (event.submitter).formAction
-				: /** @type {HTMLFormElement} */ (HTMLFormElement.prototype.cloneNode.call(form)).action
+				: clone(form_element).action
 		);
 
-		const data = new FormData(form);
+		const enctype = event.submitter?.hasAttribute('formenctype')
+			? /** @type {HTMLButtonElement | HTMLInputElement} */ (event.submitter).formEnctype
+			: clone(form_element).enctype;
+
+		const form_data = new FormData(form_element);
+
+		if (DEV && enctype !== 'multipart/form-data') {
+			for (const value of form_data.values()) {
+				if (value instanceof File) {
+					throw new Error(
+						'Your form contains <input type="file"> fields, but is missing the necessary `enctype="multipart/form-data"` attribute. This will lead to inconsistent behavior between enhanced and native forms. For more details, see https://github.com/sveltejs/kit/issues/9819.'
+					);
+				}
+			}
+		}
 
 		const submitter_name = event.submitter?.getAttribute('name');
 		if (submitter_name) {
-			data.append(submitter_name, event.submitter?.getAttribute('value') ?? '');
+			form_data.append(submitter_name, event.submitter?.getAttribute('value') ?? '');
 		}
 
 		const controller = new AbortController();
@@ -90,24 +155,41 @@ export function enhance(form, submit = () => {}) {
 				action,
 				cancel,
 				controller,
-				data,
-				form,
+				formData: form_data,
+				formElement: form_element,
 				submitter: event.submitter
 			})) ?? fallback_callback;
 		if (cancelled) return;
 
-		/** @type {import('types').ActionResult} */
+		/** @type {import('@sveltejs/kit').ActionResult} */
 		let result;
 
 		try {
+			const headers = new Headers({
+				accept: 'application/json',
+				'x-sveltekit-action': 'true'
+			});
+
+			// do not explicitly set the `Content-Type` header when sending `FormData`
+			// or else it will interfere with the browser's header setting
+			// see https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest_API/Using_FormData_Objects#sect4
+			if (enctype !== 'multipart/form-data') {
+				headers.set(
+					'Content-Type',
+					/^(:?application\/x-www-form-urlencoded|text\/plain)$/.test(enctype)
+						? enctype
+						: 'application/x-www-form-urlencoded'
+				);
+			}
+
+			// @ts-expect-error `URLSearchParams(form_data)` is kosher, but typescript doesn't know that
+			const body = enctype === 'multipart/form-data' ? form_data : new URLSearchParams(form_data);
+
 			const response = await fetch(action, {
 				method: 'POST',
-				headers: {
-					accept: 'application/json',
-					'x-sveltekit-action': 'true'
-				},
+				headers,
 				cache: 'no-store',
-				body: data,
+				body,
 				signal: controller.signal
 			});
 
@@ -120,21 +202,27 @@ export function enhance(form, submit = () => {}) {
 
 		callback({
 			action,
-			data,
-			form,
-			update: (opts) => fallback_callback({ action, result, reset: opts?.reset }),
+			formData: form_data,
+			formElement: form_element,
+			update: (opts) =>
+				fallback_callback({
+					action,
+					result,
+					reset: opts?.reset,
+					invalidateAll: opts?.invalidateAll
+				}),
 			// @ts-expect-error generic constraints stuff we don't care about
 			result
 		});
 	}
 
 	// @ts-expect-error
-	HTMLFormElement.prototype.addEventListener.call(form, 'submit', handle_submit);
+	HTMLFormElement.prototype.addEventListener.call(form_element, 'submit', handle_submit);
 
 	return {
 		destroy() {
 			// @ts-expect-error
-			HTMLFormElement.prototype.removeEventListener.call(form, 'submit', handle_submit);
+			HTMLFormElement.prototype.removeEventListener.call(form_element, 'submit', handle_submit);
 		}
 	};
 }

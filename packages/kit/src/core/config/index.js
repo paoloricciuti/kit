@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import process from 'node:process';
 import * as url from 'node:url';
 import options from './options.js';
 
@@ -69,11 +70,19 @@ export async function load_config({ cwd = process.cwd() } = {}) {
 
 	const config = await import(`${url.pathToFileURL(config_file).href}?ts=${Date.now()}`);
 
-	return process_config(config.default, { cwd });
+	try {
+		return process_config(config.default, { cwd });
+	} catch (e) {
+		const error = /** @type {Error} */ (e);
+
+		// redact the stack trace — it's not helpful to users
+		error.stack = `Could not load svelte.config.js: ${error.message}\n`;
+		throw error;
+	}
 }
 
 /**
- * @param {import('types').Config} config
+ * @param {import('@sveltejs/kit').Config} config
  * @returns {import('types').ValidatedConfig}
  */
 function process_config(config, { cwd = process.cwd() } = {}) {
@@ -85,6 +94,7 @@ function process_config(config, { cwd = process.cwd() } = {}) {
 		if (key === 'hooks') {
 			validated.kit.files.hooks.client = path.resolve(cwd, validated.kit.files.hooks.client);
 			validated.kit.files.hooks.server = path.resolve(cwd, validated.kit.files.hooks.server);
+			validated.kit.files.hooks.universal = path.resolve(cwd, validated.kit.files.hooks.universal);
 		} else {
 			// @ts-expect-error
 			validated.kit.files[key] = path.resolve(cwd, validated.kit.files[key]);
@@ -95,13 +105,13 @@ function process_config(config, { cwd = process.cwd() } = {}) {
 }
 
 /**
- * @param {import('types').Config} config
+ * @param {import('@sveltejs/kit').Config} config
  * @returns {import('types').ValidatedConfig}
  */
 export function validate_config(config) {
 	if (typeof config !== 'object') {
 		throw new Error(
-			'svelte.config.js must have a configuration object as its default export. See https://kit.svelte.dev/docs/configuration'
+			'svelte.config.js must have a configuration object as its default export. See https://svelte.dev/docs/kit/configuration'
 		);
 	}
 
